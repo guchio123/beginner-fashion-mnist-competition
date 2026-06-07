@@ -7,10 +7,10 @@ from load_fashion_mnist import load_train_data
 from network import NetworkConfig, SimpleMLP
 
 OUTPUT_PATH = Path("sample_weight.pkl")
-EPOCHS = 5
-HIDDEN_SIZE = 64
-LEARNING_RATE = 0.1
-BATCH_SIZE = 128
+EPOCHS = 30
+HIDDEN_SIZES = (256, 128)
+LEARNING_RATE = 0.001
+BATCH_SIZE = 256
 SEED = 42
 
 
@@ -20,7 +20,7 @@ def main() -> int:
     model = SimpleMLP(
         NetworkConfig(
             input_size=x_train.shape[1],
-            hidden_size=HIDDEN_SIZE,
+            hidden_sizes=HIDDEN_SIZES,
             output_size=10,
             learning_rate=LEARNING_RATE,
             batch_size=BATCH_SIZE,
