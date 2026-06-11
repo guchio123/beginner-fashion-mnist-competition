@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 
 from load_fashion_mnist import load_test_data
-from network import SimpleMLP
+from network import SimpleCNN
 
 WEIGHTS_PATH = Path("sample_weight.pkl")
 
@@ -18,7 +18,7 @@ def main() -> int:
     with WEIGHTS_PATH.open("rb") as f:
         state = pickle.load(f)
 
-    model = SimpleMLP.from_state(state)
+    model = SimpleCNN.from_state(state)
 
     x_test, t_test = load_test_data()
 

@@ -9,7 +9,7 @@ VALID_SIZE = 10000
 SEED = 42
 SHUFFLE = True
 NORMALIZE = True
-FLATTEN = True
+FLATTEN = False
 
 LABEL_NAMES = [
     "T-shirt/top",
