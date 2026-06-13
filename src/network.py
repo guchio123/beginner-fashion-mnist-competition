@@ -12,11 +12,11 @@ import torch.nn.functional as F
 @dataclass
 class CNNConfig:
     output_size: int = 10
-    conv_channels: tuple[int, int] = (32, 64)
-    fc_hidden: int = 128
-    learning_rate: float = 0.003
-    batch_size: int = 128
-    label_smoothing: float = 0.1
+    conv_channels: tuple[int, ...] = (32, 64, 128, 256)
+    fc_hidden: int = 512
+    learning_rate: float = 0.0018
+    batch_size: int = 256
+    label_smoothing: float = 0.05
     seed: int = 42
 
 
@@ -41,32 +41,35 @@ class _ResBlock(nn.Module):
 
 class _Net(nn.Module):
     """
-    Stem → ResBlock(c1) → Pool → ResBlock(c1→c2) → Pool → GAP → FC(hidden) → FC(10)
+    Stem → ResBlock stages → Pool → GAP → FC(hidden) → FC(10)
     """
 
     def __init__(self, config: CNNConfig) -> None:
         super().__init__()
-        c1, c2 = config.conv_channels
+        channels = list(config.conv_channels)
         self.stem = nn.Sequential(
-            nn.Conv2d(1, c1, 3, padding=1, bias=False),
-            nn.BatchNorm2d(c1),
+            nn.Conv2d(1, channels[0], 3, padding=1, bias=False),
+            nn.BatchNorm2d(channels[0]),
             nn.ReLU(inplace=True),
         )
-        self.layer1 = nn.Sequential(_ResBlock(c1, c1), nn.MaxPool2d(2))   # →(c1,14,14)
-        self.layer2 = nn.Sequential(_ResBlock(c1, c2), nn.MaxPool2d(2))   # →(c2, 7, 7)
+        self.layers = nn.ModuleList()
+        in_ch = channels[0]
+        for out_ch in channels[1:]:
+            self.layers.append(nn.Sequential(_ResBlock(in_ch, out_ch), nn.MaxPool2d(2)))
+            in_ch = out_ch
         self.head = nn.Sequential(
-            nn.AdaptiveAvgPool2d(1),   # →(c2,1,1)
+            nn.AdaptiveAvgPool2d(1),
             nn.Flatten(),
-            nn.Linear(c2, config.fc_hidden),
+            nn.Linear(channels[-1], config.fc_hidden),
             nn.ReLU(inplace=True),
-            nn.Dropout(0.4),
+            nn.Dropout(0.3),
             nn.Linear(config.fc_hidden, config.output_size),
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.stem(x)
-        x = self.layer1(x)
-        x = self.layer2(x)
+        for layer in self.layers:
+            x = layer(x)
         return self.head(x)
 
 
@@ -134,15 +137,19 @@ class SimpleCNN:
 
         return total_loss / max(steps, 1)
 
-    def predict(self, x: np.ndarray) -> np.ndarray:
+    def predict(self, x: np.ndarray, tta: bool = True) -> np.ndarray:
         self._net.eval()
-        # 推論も1回だけ変換
         X = self._np_to_tensor(x)
         preds = []
         bs = self.config.batch_size
         with torch.no_grad():
             for i in range(0, len(x), bs):
-                preds.append(self._net(X[i : i + bs]).argmax(1).cpu().numpy())
+                xb = X[i : i + bs]
+                logits = self._net(xb)
+                if tta:
+                    logits_flip = self._net(xb.flip(-1))
+                    logits = (logits + logits_flip) * 0.5
+                preds.append(logits.argmax(1).cpu().numpy())
         return np.concatenate(preds)
 
     def evaluate_accuracy(self, x: np.ndarray, y: np.ndarray) -> float:

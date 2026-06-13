@@ -10,6 +10,8 @@ SEED = 42
 SHUFFLE = True
 NORMALIZE = True
 FLATTEN = False
+IMAGE_MEAN = 0.2860
+IMAGE_STD = 0.3530
 
 LABEL_NAMES = [
     "T-shirt/top",
@@ -55,6 +57,7 @@ def _preprocess_images(images: np.ndarray) -> np.ndarray:
         out = out.reshape(out.shape[0], -1)
     if NORMALIZE:
         out = out.astype(np.float32) / 255.0
+        out = (out - IMAGE_MEAN) / IMAGE_STD
     return out
 
 
@@ -91,6 +94,12 @@ def load_train_data() -> tuple[
 def load_eval_data() -> tuple[np.ndarray, np.ndarray]:
     _, valid = load_train_data()
     return valid
+
+
+def load_full_train_data() -> tuple[np.ndarray, np.ndarray]:
+    train_images = _read_idx_images(DATA_DIR / "train-images-idx3-ubyte.gz")
+    train_labels = _read_idx_labels(DATA_DIR / "train-labels-idx1-ubyte.gz")
+    return _preprocess_images(train_images), train_labels
 
 
 def load_test_data() -> tuple[np.ndarray, np.ndarray]:
